@@ -237,31 +237,30 @@ class DataPrepper:
         # Your structure should look like the data frame below
 
         response = self.opensearch.search(body=log_query, index=self.index_name)
-        if response and len(response['hits']) > 0 and len(response['hits']['hits']) == 1:
-            hits = response['hits']['hits']
-            log_entries = hits[0]['fields']['_ltrlog'][0]['log_entry']
+        hits = response['hits']['hits']
 
-            feature_results = {}
-            feature_results["doc_id"] = []  # capture the doc id so we can join later
-            feature_results["query_id"] = []  # ^^^
-            feature_results["sku"] = []
+        feature_results = {}
+        feature_results["doc_id"] = []  # capture the doc id so we can join later
+        feature_results["query_id"] = []  # ^^^
+        feature_results["sku"] = []
 
+        for hit in hits:
+            doc_id = hit['_id']
+            feature_results["doc_id"].append(doc_id)  # capture the doc id so we can join later
+            feature_results["query_id"].append(query_id)
+            feature_results["sku"].append(hit['_source']['sku'][0])
+
+            log_entries = hit['fields']['_ltrlog'][0]['log_entry']
             for log_entry in log_entries:
-                feature_results[log_entry['name']] = []
+                name = log_entry['name']
+                value = log_entry.get('value', 0)
+                if name in feature_results:
+                    feature_results[name].append(value)
+                else:
+                    feature_results[name] = [value]
+        frame = pd.DataFrame(feature_results)
 
-            for doc_id in query_doc_ids:
-                    feature_results["doc_id"].append(doc_id)  # capture the doc id so we can join later
-                    feature_results["query_id"].append(query_id)
-                    feature_results["sku"].append(doc_id)
-
-                    for log_entry in log_entries:
-                        name = log_entry['name']
-                        value = log_entry.get('value', 0)
-                        feature_results[name].append(value)
-            frame = pd.DataFrame(feature_results)
-            return frame.astype({'doc_id': 'int64', 'query_id': 'int64', 'sku': 'int64'})
-        else:
-            print("Weirdness. Fix")
+        return frame.astype({'doc_id': 'int64', 'query_id': 'int64', 'sku': 'int64'})
         # IMPLEMENT_END
 
     # Can try out normalizing data, but for XGb, you really don't have to since it is just finding splits

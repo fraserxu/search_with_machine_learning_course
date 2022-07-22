@@ -4,6 +4,7 @@ import xml.etree.ElementTree as ET
 import pandas as pd
 import numpy as np
 import csv
+import string
 
 # Useful if you want to perform stemming.
 import nltk
@@ -49,8 +50,27 @@ df = pd.read_csv(queries_file_name)[['category', 'query']]
 df = df[df['category'].isin(categories)]
 
 # IMPLEMENT ME: Convert queries to lowercase, and optionally implement other normalization, like stemming.
+def normalize_query(query):
+    query = query.lower().strip('"').strip("'").translate(str.maketrans('', '', string.punctuation))
+    query_tokens = [stemmer.stem(token) for token in query.split(' ')]
+    return ' '.join(query_tokens)
+df['query'] = df['query'].transform(normalize_query)
 
 # IMPLEMENT ME: Roll up categories to ancestors to satisfy the minimum number of queries per category.
+leaf_categories_count = df['category'].value_counts().rename_axis('category').reset_index(name='count')
+merged_df = df.merge(leaf_categories_count, how='left', on='category').merge(parents_df, how='left', on='category')
+sub_threshold_count = len(leaf_categories_count[leaf_categories_count['count'] < min_queries])
+
+while sub_threshold_count > 0:
+    merged_df.loc[merged_df['count'] < min_queries, 'category'] = merged_df['parent']
+
+    df = merged_df[['category', 'query']]
+    df = df[df.category.isin(categories)]
+
+    # re-calculate counts
+    leaf_categories_count = df['category'].value_counts().rename_axis('category').reset_index(name='count')
+    merged_df = df.merge(leaf_categories_count, how='left', on='category').merge(parents_df, how='left', on='category')
+    sub_threshold_count = len(leaf_categories_count[leaf_categories_count['count'] < min_queries])
 
 # Create labels in fastText format.
 df['label'] = '__label__' + df['category']

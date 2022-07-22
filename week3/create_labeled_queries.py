@@ -71,7 +71,6 @@ while sub_threshold_count > 0:
     leaf_categories_count = df['category'].value_counts().rename_axis('category').reset_index(name='count')
     merged_df = df.merge(leaf_categories_count, how='left', on='category').merge(parents_df, how='left', on='category')
     sub_threshold_count = len(leaf_categories_count[leaf_categories_count['count'] < min_queries])
-    print(f"sub_threshold_count {sub_threshold_count}")
 
 # Create labels in fastText format.
 df['label'] = '__label__' + df['category']
